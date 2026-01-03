@@ -1,5 +1,7 @@
 # Visual Studio Code Setup
 
+> **🆕 New to n8n-MCP?** Check out our **[Getting Started Guide](./GETTING_STARTED.md)** to understand the difference between Claude Code, GitHub Copilot, and other AI assistants!
+
 :white_check_mark: This n8n MCP server is compatible with VS Code + GitHub Copilot (Chat in IDE).
 
 ## Preconditions

@@ -1,5 +1,7 @@
 # Claude Code Setup
 
+> **🆕 New to n8n-MCP?** Check out our **[Getting Started Guide](./GETTING_STARTED.md)** to understand the difference between Claude Code, GitHub Copilot, and other AI assistants!
+
 Connect n8n-MCP to Claude Code CLI for enhanced n8n workflow development from the command line.
 
 ## Quick Setup via CLI

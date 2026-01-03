@@ -36,6 +36,8 @@ AI results can be unpredictable. Protect your work!
 
 ## 🚀 Quick Start
 
+> **🆕 New here?** Check out our **[Getting Started Guide](./docs/GETTING_STARTED.md)** for a clear path to connect n8n-MCP with Claude Code, GitHub Copilot, or your favorite AI coding assistant!
+
 ### Option 1: Hosted Service (Easiest - No Setup!) ☁️
 
 **The fastest way to try n8n-MCP** - no installation, no configuration:
@@ -484,13 +486,15 @@ Want to use n8n-MCP with your n8n instance? Check out our comprehensive [n8n Dep
 
 ## 💻 Connect your IDE
 
+> **💡 Not sure which to choose?** See our **[Getting Started Guide](./docs/GETTING_STARTED.md)** for a clear comparison and quick setup paths!
+
 n8n-MCP works with multiple AI-powered IDEs and tools. Choose your preferred development environment:
 
 ### [Claude Code](./docs/CLAUDE_CODE_SETUP.md)
-Quick setup for Claude Code CLI - just type "add this mcp server" and paste the config.
+Anthropic's CLI tool for command-line AI assistance. Quick setup: `claude mcp add n8n-mcp`
 
 ### [Visual Studio Code](./docs/VS_CODE_PROJECT_SETUP.md)
-Full setup guide for VS Code with GitHub Copilot integration and MCP support.
+GitHub Copilot integration with MCP support. Perfect for teams and VS Code users.
 
 ### [Cursor](./docs/CURSOR_SETUP.md)
 Step-by-step tutorial for connecting n8n-MCP to Cursor IDE with custom rules.
@@ -1097,8 +1101,11 @@ npm run dev:http       # HTTP dev mode
 ## 📚 Documentation
 
 ### Setup Guides
+- **[Getting Started Guide](./docs/GETTING_STARTED.md)** - ⭐ Start here! Choose your AI assistant and get connected
 - [Installation Guide](./docs/INSTALLATION.md) - Comprehensive installation instructions
 - [Claude Desktop Setup](./docs/README_CLAUDE_SETUP.md) - Detailed Claude configuration
+- [Claude Code Setup](./docs/CLAUDE_CODE_SETUP.md) - Command-line AI with Claude Code
+- [VS Code + GitHub Copilot](./docs/VS_CODE_PROJECT_SETUP.md) - GitHub Copilot integration
 - [Docker Guide](./docs/DOCKER_README.md) - Advanced Docker deployment options
 - [MCP Quick Start](./docs/MCP_QUICK_START_GUIDE.md) - Get started quickly with n8n-MCP
 

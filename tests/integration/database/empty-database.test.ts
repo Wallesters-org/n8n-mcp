@@ -132,11 +132,8 @@ describe('Empty Database Detection Tests', () => {
         issue.toLowerCase().includes('rebuild')
       );
 
-      // This expectation documents that we should add rebuild suggestions
-      // Currently validation doesn't include this, but it should
-      if (!errorWithSuggestion) {
-        console.warn('TODO: Add rebuild suggestion to validation error messages');
-      }
+      expect(errorWithSuggestion).toBeDefined();
+      expect(errorWithSuggestion).toContain('npm run rebuild');
     });
   });
 
@@ -165,7 +162,7 @@ function validateEmptyDatabase(repository: NodeRepository): { passed: boolean; i
     // Check if database has any nodes
     const nodeCount = db.prepare('SELECT COUNT(*) as count FROM nodes').get() as { count: number };
     if (nodeCount.count === 0) {
-      issues.push('CRITICAL: Database is empty - no nodes found! Rebuild failed or was interrupted.');
+      issues.push('CRITICAL: Database is empty - no nodes found! Rebuild failed or was interrupted. Run "npm run rebuild" to populate the database.');
       return { passed: false, issues };
     }
 

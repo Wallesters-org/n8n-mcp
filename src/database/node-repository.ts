@@ -46,11 +46,11 @@ export class NodeRepository {
       node.hasToolVariant ? 1 : 0,
       node.version,
       node.documentation || null,
-      JSON.stringify(node.properties, null, 2),
-      JSON.stringify(node.operations, null, 2),
-      JSON.stringify(node.credentials, null, 2),
-      node.outputs ? JSON.stringify(node.outputs, null, 2) : null,
-      node.outputNames ? JSON.stringify(node.outputNames, null, 2) : null
+      JSON.stringify(node.properties),
+      JSON.stringify(node.operations),
+      JSON.stringify(node.credentials),
+      node.outputs ? JSON.stringify(node.outputs) : null,
+      node.outputNames ? JSON.stringify(node.outputNames) : null
     );
   }
   
@@ -62,20 +62,15 @@ export class NodeRepository {
     // Normalize to full form first for consistent lookups
     const normalizedType = NodeTypeNormalizer.normalizeToFullForm(nodeType);
 
-    const row = this.db.prepare(`
-      SELECT * FROM nodes WHERE node_type = ?
-    `).get(normalizedType) as any;
-
-    // Fallback: try original type if normalization didn't help (e.g., community nodes)
-    if (!row && normalizedType !== nodeType) {
-      const originalRow = this.db.prepare(`
-        SELECT * FROM nodes WHERE node_type = ?
-      `).get(nodeType) as any;
-
-      if (originalRow) {
-        return this.parseNodeRow(originalRow);
-      }
-    }
+    // Optimization: Use single query with OR condition to avoid double database round-trip
+    // Try both normalized and original type in one query
+    const row = normalizedType !== nodeType
+      ? this.db.prepare(`
+          SELECT * FROM nodes WHERE node_type = ? OR node_type = ?
+        `).get(normalizedType, nodeType) as any
+      : this.db.prepare(`
+          SELECT * FROM nodes WHERE node_type = ?
+        `).get(normalizedType) as any;
 
     if (!row) return null;
 

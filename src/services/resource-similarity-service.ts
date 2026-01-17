@@ -20,6 +20,7 @@ export class ResourceSimilarityService {
   private static readonly CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
   private static readonly MIN_CONFIDENCE = 0.3; // 30% minimum confidence to suggest
   private static readonly MAX_SUGGESTIONS = 5;
+  private static readonly MAX_CACHE_SIZE = 100;
 
   // Confidence thresholds for better code clarity
   private static readonly CONFIDENCE_THRESHOLDS = {
@@ -32,7 +33,8 @@ export class ResourceSimilarityService {
 
   private repository: NodeRepository;
   private resourceCache: Map<string, { resources: any[], timestamp: number }> = new Map();
-  private suggestionCache: Map<string, ResourceSuggestion[]> = new Map();
+  // LRU cache: Map maintains insertion order, we use this for LRU eviction
+  private suggestionCache: Map<string, { suggestions: ResourceSuggestion[], timestamp: number }> = new Map();
   private commonPatterns: Map<string, ResourcePattern[]>;
 
   constructor(repository: NodeRepository) {
@@ -42,25 +44,32 @@ export class ResourceSimilarityService {
 
   /**
    * Clean up expired cache entries to prevent memory leaks
+   * Uses LRU (Least Recently Used) strategy with TTL (Time To Live)
    */
   private cleanupExpiredEntries(): void {
     const now = Date.now();
 
-    // Clean resource cache
+    // Clean resource cache based on TTL
     for (const [key, value] of this.resourceCache.entries()) {
       if (now - value.timestamp >= ResourceSimilarityService.CACHE_DURATION_MS) {
         this.resourceCache.delete(key);
       }
     }
 
-    // Clean suggestion cache - these don't have timestamps, so clear if cache is too large
-    if (this.suggestionCache.size > 100) {
-      // Keep only the most recent 50 entries
-      const entries = Array.from(this.suggestionCache.entries());
-      this.suggestionCache.clear();
-      entries.slice(-50).forEach(([key, value]) => {
-        this.suggestionCache.set(key, value);
-      });
+    // Clean suggestion cache using LRU strategy with TTL
+    // Remove expired entries first
+    for (const [key, value] of this.suggestionCache.entries()) {
+      if (now - value.timestamp >= ResourceSimilarityService.CACHE_DURATION_MS) {
+        this.suggestionCache.delete(key);
+      }
+    }
+    
+    // If still over limit, remove oldest entries (LRU)
+    // Map maintains insertion order, so first entries are oldest
+    if (this.suggestionCache.size > ResourceSimilarityService.MAX_CACHE_SIZE) {
+      const entriesToRemove = this.suggestionCache.size - ResourceSimilarityService.MAX_CACHE_SIZE;
+      const keysToRemove = Array.from(this.suggestionCache.keys()).slice(0, entriesToRemove);
+      keysToRemove.forEach(key => this.suggestionCache.delete(key));
     }
   }
 
@@ -151,10 +160,14 @@ export class ResourceSimilarityService {
     if (Math.random() < 0.1) { // 10% chance to cleanup on each call
       this.cleanupExpiredEntries();
     }
-    // Check cache first
+    // Check cache first (with LRU - move accessed item to end)
     const cacheKey = `${nodeType}:${invalidResource}`;
     if (this.suggestionCache.has(cacheKey)) {
-      return this.suggestionCache.get(cacheKey)!;
+      const cached = this.suggestionCache.get(cacheKey)!;
+      // LRU: delete and re-add to move to end (most recently used)
+      this.suggestionCache.delete(cacheKey);
+      this.suggestionCache.set(cacheKey, cached);
+      return cached.suggestions;
     }
 
     const suggestions: ResourceSuggestion[] = [];
@@ -228,8 +241,11 @@ export class ResourceSimilarityService {
     suggestions.sort((a, b) => b.confidence - a.confidence);
     const topSuggestions = suggestions.slice(0, maxSuggestions);
 
-    // Cache the result
-    this.suggestionCache.set(cacheKey, topSuggestions);
+    // Cache the result with timestamp for TTL
+    this.suggestionCache.set(cacheKey, { 
+      suggestions: topSuggestions, 
+      timestamp: Date.now() 
+    });
 
     return topSuggestions;
   }

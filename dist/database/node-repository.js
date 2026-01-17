@@ -22,21 +22,17 @@ class NodeRepository {
         outputs, output_names
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-        stmt.run(node.nodeType, node.packageName, node.displayName, node.description, node.category, node.style, node.isAITool ? 1 : 0, node.isTrigger ? 1 : 0, node.isWebhook ? 1 : 0, node.isVersioned ? 1 : 0, node.isToolVariant ? 1 : 0, node.toolVariantOf || null, node.hasToolVariant ? 1 : 0, node.version, node.documentation || null, JSON.stringify(node.properties, null, 2), JSON.stringify(node.operations, null, 2), JSON.stringify(node.credentials, null, 2), node.outputs ? JSON.stringify(node.outputs, null, 2) : null, node.outputNames ? JSON.stringify(node.outputNames, null, 2) : null);
+        stmt.run(node.nodeType, node.packageName, node.displayName, node.description, node.category, node.style, node.isAITool ? 1 : 0, node.isTrigger ? 1 : 0, node.isWebhook ? 1 : 0, node.isVersioned ? 1 : 0, node.isToolVariant ? 1 : 0, node.toolVariantOf || null, node.hasToolVariant ? 1 : 0, node.version, node.documentation || null, JSON.stringify(node.properties), JSON.stringify(node.operations), JSON.stringify(node.credentials), node.outputs ? JSON.stringify(node.outputs) : null, node.outputNames ? JSON.stringify(node.outputNames) : null);
     }
     getNode(nodeType) {
         const normalizedType = node_type_normalizer_1.NodeTypeNormalizer.normalizeToFullForm(nodeType);
-        const row = this.db.prepare(`
-      SELECT * FROM nodes WHERE node_type = ?
-    `).get(normalizedType);
-        if (!row && normalizedType !== nodeType) {
-            const originalRow = this.db.prepare(`
-        SELECT * FROM nodes WHERE node_type = ?
-      `).get(nodeType);
-            if (originalRow) {
-                return this.parseNodeRow(originalRow);
-            }
-        }
+        const row = normalizedType !== nodeType
+            ? this.db.prepare(`
+          SELECT * FROM nodes WHERE node_type = ? OR node_type = ?
+        `).get(normalizedType, nodeType)
+            : this.db.prepare(`
+          SELECT * FROM nodes WHERE node_type = ?
+        `).get(normalizedType);
         if (!row)
             return null;
         return this.parseNodeRow(row);

@@ -129,6 +129,17 @@ src/
 └── index.ts                   # Library exports
 ```
 
+## Performance Characteristics
+
+The codebase has been optimized for performance with several key improvements:
+
+- **Database Queries**: Single OR queries instead of fallback lookups (~50% reduction in DB calls)
+- **Storage Efficiency**: Compact JSON serialization (15-20% smaller database)
+- **LRU Caching**: Proper cache eviction with TTL prevents memory leaks
+- **Query Optimization**: Parameterized queries with early termination
+
+See [PERFORMANCE_OPTIMIZATIONS.md](./PERFORMANCE_OPTIMIZATIONS.md) for detailed analysis and benchmarks.
+
 ## Common Development Commands
 
 ```bash
@@ -469,6 +480,27 @@ Four validation strictness levels:
 - 22 unit tests covering export, restore, edge cases, and round-trip cycles
 - Tests use current timestamps to avoid expiration issues
 - Integration with multi-tenant backends documented in README.md
+
+### Performance Best Practices
+
+**Database Operations:**
+- Use single parameterized queries with OR instead of fallback queries
+- Store JSON without pretty-printing (no `null, 2` parameters)
+- Leverage SQLite's query planner with proper indexing
+
+**Caching Strategy:**
+- Implement LRU eviction for all bounded caches
+- Add timestamps to cache entries for TTL-based expiration
+- Use Map's insertion order for efficient LRU tracking
+- Balance cleanup frequency vs. overhead (10% probability works well)
+
+**Algorithm Optimization:**
+- Profile before optimizing - measure actual impact
+- Consider typical data sizes, not worst-case complexity
+- Use Map/Set for O(1) lookups instead of array iterations
+- Implement early termination in validation loops
+
+See [PERFORMANCE_OPTIMIZATIONS.md](./PERFORMANCE_OPTIMIZATIONS.md) for detailed guidelines.
 
 ## Key Files and Their Purpose
 

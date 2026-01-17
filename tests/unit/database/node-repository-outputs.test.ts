@@ -82,11 +82,11 @@ describe('NodeRepository - Outputs Handling', () => {
         0, // hasToolVariant
         '3', // version
         null, // documentation
-        JSON.stringify([], null, 2), // properties
-        JSON.stringify([], null, 2), // operations
-        JSON.stringify([], null, 2), // credentials
-        JSON.stringify(outputs, null, 2), // outputs
-        JSON.stringify(outputNames, null, 2) // output_names
+        JSON.stringify([]), // properties
+        JSON.stringify([]), // operations
+        JSON.stringify([]), // credentials
+        JSON.stringify(outputs), // outputs
+        JSON.stringify(outputNames) // output_names
       );
     });
 
@@ -200,8 +200,8 @@ describe('NodeRepository - Outputs Handling', () => {
       repository.saveNode(node);
 
       const callArgs = mockStatement.run.mock.calls[0];
-      expect(callArgs[18]).toBe(JSON.stringify([], null, 2)); // outputs
-      expect(callArgs[19]).toBe(JSON.stringify([], null, 2)); // output_names
+      expect(callArgs[18]).toBe(JSON.stringify([])); // outputs
+      expect(callArgs[19]).toBe(JSON.stringify([])); // output_names
     });
   });
 

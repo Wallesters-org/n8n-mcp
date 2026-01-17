@@ -111,9 +111,9 @@ describe('NodeRepository - Core Functionality', () => {
         0, // hasToolVariant
         '1.0',
         'HTTP Request documentation',
-        JSON.stringify([{ name: 'url', type: 'string' }], null, 2),
-        JSON.stringify([{ name: 'execute', displayName: 'Execute' }], null, 2),
-        JSON.stringify([{ name: 'httpBasicAuth' }], null, 2),
+        JSON.stringify([{ name: 'url', type: 'string' }]),
+        JSON.stringify([{ name: 'execute', displayName: 'Execute' }]),
+        JSON.stringify([{ name: 'httpBasicAuth' }]),
         null, // outputs
         null  // outputNames
       );
@@ -355,7 +355,7 @@ describe('NodeRepository - Core Functionality', () => {
       const runCall = stmt?.run.mock.lastCall;
       const savedProperties = runCall?.[15]; // was 12, now 15 after 3 new columns
 
-      expect(savedProperties).toBe(JSON.stringify(largeProperties, null, 2));
+      expect(savedProperties).toBe(JSON.stringify(largeProperties));
     });
     
     it('should handle boolean conversion for integer fields', () => {

@@ -920,6 +920,41 @@ This tool was created to benefit everyone in the n8n community without friction.
 - **⚡ Fast Response**: Average query time ~12ms with optimized SQLite
 - **🌐 Universal Compatibility**: Works with any Node.js version
 
+## 📖 Example Workflows
+
+Explore complete workflow examples demonstrating real-world use cases:
+
+### GitHub Workflow Error Auto-Fixer
+
+**Location:** [`examples/github-workflow-error-autofixer/`](examples/github-workflow-error-autofixer/)
+
+An advanced n8n workflow that automatically analyzes and fixes GitHub Actions errors using AI agents with Airtop browser automation.
+
+**Features:**
+- 🤖 AI-powered error analysis with Claude/OpenAI
+- 🌐 Browser automation via Airtop API
+- 🔧 Automatic fix attempts for common issues
+- 📢 Slack notifications with detailed reports
+- 🔄 GitHub webhook integration
+
+**Quick Start:**
+```bash
+# View the example
+cd examples/github-workflow-error-autofixer
+cat QUICKSTART.md
+
+# Deploy to your n8n instance
+node deploy.js
+```
+
+**Documentation:**
+- [README](examples/github-workflow-error-autofixer/README.md) - Complete architecture and setup guide
+- [QUICKSTART](examples/github-workflow-error-autofixer/QUICKSTART.md) - 5-minute setup guide
+- [CONFIGURATION](examples/github-workflow-error-autofixer/CONFIGURATION.md) - Detailed configuration
+- [EXAMPLES](examples/github-workflow-error-autofixer/EXAMPLES.md) - Real-world usage scenarios
+
+See [`examples/README.md`](examples/README.md) for more workflows and contribution guidelines.
+
 ## 💬 Why n8n-MCP? A Testimonial from Claude
 
 > *"Before MCP, I was translating. Now I'm composing. And that changes everything about how we can build automation."*

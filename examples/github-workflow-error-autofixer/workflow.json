@@ -1,0 +1,241 @@
+{
+  "name": "GitHub Workflow Error Auto-Fixer",
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "name": "GitHub Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "github-workflow-error",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "github-workflow-error",
+        "options": {}
+      }
+    },
+    {
+      "id": "parse-error-details",
+      "name": "Parse Error Details",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const payload = $input.first().json.body || $input.first().json;\n\nconst errorDetails = {\n  repository: payload.repository?.full_name || 'unknown',\n  workflow_name: payload.workflow?.name || payload.workflow_run?.name || 'unknown',\n  workflow_id: payload.workflow_run?.id || 'unknown',\n  run_id: payload.workflow_run?.id || payload.check_run?.id || 'unknown',\n  conclusion: payload.workflow_run?.conclusion || payload.check_run?.conclusion || 'failure',\n  error_logs_url: payload.workflow_run?.logs_url || '',\n  html_url: payload.workflow_run?.html_url || payload.check_run?.html_url || '',\n  head_branch: payload.workflow_run?.head_branch || 'main',\n  head_sha: payload.workflow_run?.head_sha || '',\n  triggered_by: payload.sender?.login || 'unknown',\n  timestamp: new Date().toISOString()\n};\n\nreturn { json: errorDetails };"
+      }
+    },
+    {
+      "id": "airtop-create-session",
+      "name": "Airtop - Create Browser Session",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [650, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.airtop.ai/v1/sessions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"configuration\": {\n    \"timeoutMinutes\": 30,\n    \"persistProfile\": false\n  }\n}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "airtop-api",
+          "name": "Airtop API"
+        }
+      }
+    },
+    {
+      "id": "ai-agent-analyzer",
+      "name": "AI Agent - Error Analyzer",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [850, 300],
+      "parameters": {
+        "agent": "conversationalAgent",
+        "promptType": "define",
+        "text": "=Ти си експертен DevOps инженер и GitHub Actions специалист.\n\n## ЗАДАЧА\nАнализирай следната грешка от GitHub Workflow и създай детайлен план за оправяне:\n\n### Детайли за грешката:\n- **Repository:** {{ $('Parse Error Details').item.json.repository }}\n- **Workflow:** {{ $('Parse Error Details').item.json.workflow_name }}\n- **Run ID:** {{ $('Parse Error Details').item.json.run_id }}\n- **Branch:** {{ $('Parse Error Details').item.json.head_branch }}\n- **URL:** {{ $('Parse Error Details').item.json.html_url }}\n- **Commit SHA:** {{ $('Parse Error Details').item.json.head_sha }}\n\n## ИНСТРУКЦИИ\n\n1. **АНАЛИЗ:** Използвай Airtop browser за да:\n   - Навигирай до GitHub Actions URL\n   - Прочети error logs\n   - Идентифицирай root cause на проблема\n\n2. **ПЛАН:** Създай стъпков план с:\n   - Конкретни файлове за промяна\n   - Точни промени в кода\n   - Команди за изпълнение (ако има)\n\n3. **ИЗПЪЛНЕНИЕ:** Използвай browser-а за да:\n   - Навигирай до съответните файлове в GitHub\n   - Направи необходимите промени\n   - Commit-ни промените\n\n4. **ВЕРИФИКАЦИЯ:** Провери дали workflow-а минава успешно\n\n5. **SUMMARY:** Генерирай кратко резюме на:\n   - Какъв беше проблемът\n   - Какви промени бяха направени\n   - Краен статус",
+        "systemMessage": "Ти си AI агент специализиран в анализ и оправяне на GitHub Actions workflow грешки. Имаш достъп до Airtop browser за навигация и взаимодействие с GitHub. Винаги следвай структуриран подход: анализ → план → изпълнение → верификация → отчет.",
+        "options": {
+          "maxIterations": 10
+        }
+      }
+    },
+    {
+      "id": "tool-airtop-navigate",
+      "name": "Tool: Airtop Navigate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 200],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const sessionId = $('Airtop - Create Browser Session').item.json.data.id;\nconst url = $input.first().json.url;\n\nconst response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `https://api.airtop.ai/v1/sessions/${sessionId}/windows`,\n  headers: {\n    'Authorization': 'Bearer ' + $credentials.airtopApi.apiKey,\n    'Content-Type': 'application/json'\n  },\n  body: { url: url }\n});\n\nreturn { json: { windowId: response.data.id, sessionId: sessionId } };"
+      }
+    },
+    {
+      "id": "tool-airtop-extract",
+      "name": "Tool: Airtop Extract Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const sessionId = $input.first().json.sessionId;\nconst windowId = $input.first().json.windowId;\nconst prompt = $input.first().json.prompt || 'Extract all error messages and logs from this page';\n\nconst response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `https://api.airtop.ai/v1/sessions/${sessionId}/windows/${windowId}/page-query`,\n  headers: {\n    'Authorization': 'Bearer ' + $credentials.airtopApi.apiKey,\n    'Content-Type': 'application/json'\n  },\n  body: {\n    prompt: prompt,\n    configuration: {\n      outputSchema: {\n        type: 'object',\n        properties: {\n          content: { type: 'string' },\n          errors: { type: 'array', items: { type: 'string' } },\n          suggestions: { type: 'array', items: { type: 'string' } }\n        }\n      }\n    }\n  }\n});\n\nreturn { json: response.data };"
+      }
+    },
+    {
+      "id": "tool-airtop-click",
+      "name": "Tool: Airtop Click",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 400],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const sessionId = $input.first().json.sessionId;\nconst windowId = $input.first().json.windowId;\nconst elementDescription = $input.first().json.elementDescription;\n\nconst response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `https://api.airtop.ai/v1/sessions/${sessionId}/windows/${windowId}/click`,\n  headers: {\n    'Authorization': 'Bearer ' + $credentials.airtopApi.apiKey,\n    'Content-Type': 'application/json'\n  },\n  body: { elementDescription: elementDescription }\n});\n\nreturn { json: { success: true, action: 'clicked', element: elementDescription } };"
+      }
+    },
+    {
+      "id": "tool-airtop-type",
+      "name": "Tool: Airtop Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 500],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const sessionId = $input.first().json.sessionId;\nconst windowId = $input.first().json.windowId;\nconst text = $input.first().json.text;\nconst elementDescription = $input.first().json.elementDescription;\n\nconst response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `https://api.airtop.ai/v1/sessions/${sessionId}/windows/${windowId}/type`,\n  headers: {\n    'Authorization': 'Bearer ' + $credentials.airtopApi.apiKey,\n    'Content-Type': 'application/json'\n  },\n  body: { text: text, elementDescription: elementDescription }\n});\n\nreturn { json: { success: true, action: 'typed', text: text } };"
+      }
+    },
+    {
+      "id": "tool-airtop-screenshot",
+      "name": "Tool: Airtop Screenshot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 600],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const sessionId = $input.first().json.sessionId;\nconst windowId = $input.first().json.windowId;\n\nconst response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `https://api.airtop.ai/v1/sessions/${sessionId}/windows/${windowId}/screenshot`,\n  headers: {\n    'Authorization': 'Bearer ' + $credentials.airtopApi.apiKey,\n    'Content-Type': 'application/json'\n  }\n});\n\nreturn { json: { screenshot: response.data.dataUrl } };"
+      }
+    },
+    {
+      "id": "airtop-close-session",
+      "name": "Airtop - Close Session",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1250, 300],
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://api.airtop.ai/v1/sessions/{{ $('Airtop - Create Browser Session').item.json.data.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "airtop-api",
+          "name": "Airtop API"
+        }
+      }
+    },
+    {
+      "id": "slack-notification",
+      "name": "Slack - Send Summary",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1450, 300],
+      "parameters": {
+        "channel": "#devops-alerts",
+        "text": "=:robot_face: *GitHub Workflow Error - Auto-Fix Report*\n\n:package: *Repository:* {{ $('Parse Error Details').item.json.repository }}\n:gear: *Workflow:* {{ $('Parse Error Details').item.json.workflow_name }}\n:git: *Branch:* {{ $('Parse Error Details').item.json.head_branch }}\n\n---\n\n:mag: *AI Agent Analysis & Fix Summary:*\n{{ $('AI Agent - Error Analyzer').item.json.output }}\n\n---\n\n:link: *Links:*\n• <{{ $('Parse Error Details').item.json.html_url }}|View Workflow Run>\n\n:clock1: *Processed at:* {{ $('Parse Error Details').item.json.timestamp }}",
+        "otherOptions": {}
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack-api",
+          "name": "Slack API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "GitHub Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Error Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Error Details": {
+      "main": [
+        [
+          {
+            "node": "Airtop - Create Browser Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtop - Create Browser Session": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Error Analyzer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Error Analyzer": {
+      "main": [
+        [
+          {
+            "node": "Airtop - Close Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtop - Close Session": {
+      "main": [
+        [
+          {
+            "node": "Slack - Send Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "github"
+    },
+    {
+      "name": "automation"
+    },
+    {
+      "name": "devops"
+    },
+    {
+      "name": "ai-agent"
+    },
+    {
+      "name": "airtop"
+    }
+  ],
+  "pinData": {},
+  "versionId": "1"
+}

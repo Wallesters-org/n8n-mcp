@@ -6,6 +6,8 @@ export interface LoadedNode {
 export declare class N8nNodeLoader {
     private readonly CORE_PACKAGES;
     loadAllNodes(): Promise<LoadedNode[]>;
+    private resolvePackageDir;
+    private loadNodeModule;
     private loadPackageNodes;
 }
 //# sourceMappingURL=node-loader.d.ts.map

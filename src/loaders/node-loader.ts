@@ -31,24 +31,44 @@ export class N8nNodeLoader {
     return results;
   }
 
+  /**
+   * Resolve the absolute directory of an installed package.
+   * Uses require.resolve on package.json (always exported) and strips the filename.
+   */
+  private resolvePackageDir(packagePath: string): string {
+    const pkgJsonPath = require.resolve(`${packagePath}/package.json`);
+    return path.dirname(pkgJsonPath);
+  }
+
+  /**
+   * Load a node module by absolute file path, bypassing package.json "exports".
+   * Some packages (e.g. @n8n/n8n-nodes-langchain >=2.9) restrict exports but
+   * still list node files in the n8n.nodes array — we need direct filesystem access.
+   */
+  private loadNodeModule(absolutePath: string): any {
+    return require(absolutePath);
+  }
+
   private async loadPackageNodes(packageName: string, packagePath: string, packageJson: any): Promise<LoadedNode[]> {
     const n8nConfig = packageJson.n8n || {};
     const nodes: LoadedNode[] = [];
-    
+    const packageDir = this.resolvePackageDir(packagePath);
+
     // Check if nodes is an array or object
     const nodesList = n8nConfig.nodes || [];
-    
+
     if (Array.isArray(nodesList)) {
       // Handle array format (n8n-nodes-base uses this)
       for (const nodePath of nodesList) {
         try {
-          const fullPath = require.resolve(`${packagePath}/${nodePath}`);
-          const nodeModule = require(fullPath);
-          
+          // Resolve absolute path directly to bypass package exports restrictions
+          const fullPath = path.join(packageDir, nodePath);
+          const nodeModule = this.loadNodeModule(fullPath);
+
           // Extract node name from path (e.g., "dist/nodes/Slack/Slack.node.js" -> "Slack")
           const nodeNameMatch = nodePath.match(/\/([^\/]+)\.node\.(js|ts)$/);
           const nodeName = nodeNameMatch ? nodeNameMatch[1] : path.basename(nodePath, '.node.js');
-          
+
           // Handle default export and various export patterns
           const NodeClass = nodeModule.default || nodeModule[nodeName] || Object.values(nodeModule)[0];
           if (NodeClass) {
@@ -65,9 +85,9 @@ export class N8nNodeLoader {
       // Handle object format (for other packages)
       for (const [nodeName, nodePath] of Object.entries(nodesList)) {
         try {
-          const fullPath = require.resolve(`${packagePath}/${nodePath as string}`);
-          const nodeModule = require(fullPath);
-          
+          const fullPath = path.join(packageDir, nodePath as string);
+          const nodeModule = this.loadNodeModule(fullPath);
+
           // Handle default export and various export patterns
           const NodeClass = nodeModule.default || nodeModule[nodeName] || Object.values(nodeModule)[0];
           if (NodeClass) {
@@ -81,7 +101,7 @@ export class N8nNodeLoader {
         }
       }
     }
-    
+
     return nodes;
   }
 }

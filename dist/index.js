@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isInstanceContext = exports.validateInstanceContext = exports.N8NDocumentationMCPServer = exports.ConsoleManager = exports.SingleSessionHTTPServer = exports.N8NMCPEngine = void 0;
+exports.UI_APP_CONFIGS = exports.isInstanceContext = exports.validateInstanceContext = exports.N8NDocumentationMCPServer = exports.ConsoleManager = exports.SingleSessionHTTPServer = exports.N8NMCPEngine = void 0;
 var mcp_engine_1 = require("./mcp-engine");
 Object.defineProperty(exports, "N8NMCPEngine", { enumerable: true, get: function () { return mcp_engine_1.N8NMCPEngine; } });
 var http_server_single_session_1 = require("./http-server-single-session");
@@ -15,6 +15,8 @@ Object.defineProperty(exports, "N8NDocumentationMCPServer", { enumerable: true, 
 var instance_context_1 = require("./types/instance-context");
 Object.defineProperty(exports, "validateInstanceContext", { enumerable: true, get: function () { return instance_context_1.validateInstanceContext; } });
 Object.defineProperty(exports, "isInstanceContext", { enumerable: true, get: function () { return instance_context_1.isInstanceContext; } });
+var app_configs_1 = require("./mcp/ui/app-configs");
+Object.defineProperty(exports, "UI_APP_CONFIGS", { enumerable: true, get: function () { return app_configs_1.UI_APP_CONFIGS; } });
 const mcp_engine_2 = __importDefault(require("./mcp-engine"));
 exports.default = mcp_engine_2.default;
 //# sourceMappingURL=index.js.map

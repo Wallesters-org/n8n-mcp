@@ -124,9 +124,23 @@ Learn more: https://github.com/czlonkowski/n8n-mcp/blob/main/PRIVACY.md
     checkpoints.push(STARTUP_CHECKPOINTS.MCP_HANDSHAKE_STARTING);
     
     if (mode === 'http') {
-      // Check if we should use the fixed implementation
+      // Check if we should use the fixed implementation (DEPRECATED)
       if (process.env.USE_FIXED_HTTP === 'true') {
-        // Use the fixed HTTP implementation that bypasses StreamableHTTPServerTransport issues
+        // DEPRECATION WARNING: Fixed HTTP implementation is deprecated
+        // It does not support SSE streaming required by clients like OpenAI Codex
+        logger.warn(
+          'DEPRECATION WARNING: USE_FIXED_HTTP=true is deprecated as of v2.31.8. ' +
+          'The fixed HTTP implementation does not support SSE streaming required by clients like OpenAI Codex. ' +
+          'Please unset USE_FIXED_HTTP to use the modern SingleSessionHTTPServer which supports both JSON-RPC and SSE. ' +
+          'This option will be removed in a future version. See: https://github.com/czlonkowski/n8n-mcp/issues/524'
+        );
+        console.warn('\n⚠️  DEPRECATION WARNING ⚠️');
+        console.warn('USE_FIXED_HTTP=true is deprecated as of v2.31.8.');
+        console.warn('The fixed HTTP implementation does not support SSE streaming.');
+        console.warn('Please unset USE_FIXED_HTTP to use SingleSessionHTTPServer.');
+        console.warn('See: https://github.com/czlonkowski/n8n-mcp/issues/524\n');
+
+        // Use the deprecated fixed HTTP implementation
         const { startFixedHTTPServer } = await import('../http-server');
         await startFixedHTTPServer();
       } else {

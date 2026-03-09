@@ -67,7 +67,6 @@ Claude Desktop → mcp-remote → https://your-server.com
 # 1. Create environment file
 cat > .env << EOF
 AUTH_TOKEN=$(openssl rand -base64 32)
-USE_FIXED_HTTP=true
 MCP_MODE=http
 PORT=3000
 # Optional: Enable n8n management tools
@@ -106,7 +105,6 @@ npm run rebuild
 
 # 2. Configure environment
 export MCP_MODE=http
-export USE_FIXED_HTTP=true  # Important: Use fixed implementation
 export AUTH_TOKEN=$(openssl rand -base64 32)
 export PORT=3000
 
@@ -144,7 +142,6 @@ Skip HTTP entirely and use stdio mode directly:
 | Variable | Description | Example |
 |----------|-------------|------|
 | `MCP_MODE` | Must be set to `http` | `http` |
-| `USE_FIXED_HTTP` | **Important**: Set to `true` for stable implementation | `true` |
 | `AUTH_TOKEN` or `AUTH_TOKEN_FILE` | Authentication method | See security section |
 
 ### Optional Settings
@@ -417,7 +414,6 @@ services:
     environment:
       # Core configuration
       MCP_MODE: http
-      USE_FIXED_HTTP: true
       NODE_ENV: production
       
       # Security - Using file-based secret
@@ -500,7 +496,6 @@ WorkingDirectory=/opt/n8n-mcp
 # Use file-based secret
 Environment="AUTH_TOKEN_FILE=/etc/n8n-mcp/auth_token"
 Environment="MCP_MODE=http"
-Environment="USE_FIXED_HTTP=true"
 Environment="NODE_ENV=production"
 Environment="TRUST_PROXY=1"
 Environment="BASE_URL=https://n8n-mcp.example.com"
@@ -772,8 +767,8 @@ sudo ufw status  # Linux
 ```
 
 **"Stream is not readable":**
-- Ensure `USE_FIXED_HTTP=true` is set
-- Fixed in v2.3.2+
+- This issue was fixed in v2.3.2+ with the SingleSessionHTTPServer
+- No additional configuration needed
 
 **Bridge script not working:**
 ```bash

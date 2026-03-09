@@ -40,7 +40,6 @@ Key configuration options:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `MCP_MODE` | Server mode: `stdio` or `http` | `stdio` |
-| `USE_FIXED_HTTP` | Use fixed HTTP implementation (v2.3.2+) | `true` |
 | `AUTH_TOKEN` | Authentication token for HTTP mode | Required |
 | `PORT` | HTTP server port | `3000` |
 | `LOG_LEVEL` | Logging verbosity | `info` |

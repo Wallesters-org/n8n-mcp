@@ -71,10 +71,12 @@ const testCases: TestCase[] = [
     }
   },
   {
-    name: 'Fixed HTTP implementation',
+    // DEPRECATED: This test case tests the deprecated fixed HTTP implementation
+    // See: https://github.com/czlonkowski/n8n-mcp/issues/524
+    name: 'Fixed HTTP implementation (DEPRECATED)',
     env: {
       MCP_MODE: 'http',
-      USE_FIXED_HTTP: 'true',
+      USE_FIXED_HTTP: 'true',  // DEPRECATED: Will be removed in future version
       AUTH_TOKEN: 'test-token-for-testing-only',
       PORT: '3005',
       BASE_URL: 'https://fixed.example.com'

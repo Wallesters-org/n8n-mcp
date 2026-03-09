@@ -20,6 +20,11 @@ exports.n8nDocumentationToolsFinal = [
                 },
             },
         },
+        annotations: {
+            title: 'Tools Documentation',
+            readOnlyHint: true,
+            idempotentHint: true,
+        },
     },
     {
         name: 'search_nodes',
@@ -47,8 +52,19 @@ exports.n8nDocumentationToolsFinal = [
                     description: 'Include top 2 real-world configuration examples from popular templates (default: false)',
                     default: false,
                 },
+                source: {
+                    type: 'string',
+                    enum: ['all', 'core', 'community', 'verified'],
+                    description: 'Filter by node source: all=everything (default), core=n8n base nodes, community=community nodes, verified=verified community nodes only',
+                    default: 'all',
+                },
             },
             required: ['query'],
+        },
+        annotations: {
+            title: 'Search Nodes',
+            readOnlyHint: true,
+            idempotentHint: true,
         },
     },
     {
@@ -102,6 +118,11 @@ exports.n8nDocumentationToolsFinal = [
                 },
             },
             required: ['nodeType'],
+        },
+        annotations: {
+            title: 'Get Node Info',
+            readOnlyHint: true,
+            idempotentHint: true,
         },
     },
     {
@@ -183,6 +204,11 @@ exports.n8nDocumentationToolsFinal = [
             },
             required: ['nodeType', 'displayName', 'valid']
         },
+        annotations: {
+            title: 'Validate Node Config',
+            readOnlyHint: true,
+            idempotentHint: true,
+        },
     },
     {
         name: 'get_template',
@@ -202,6 +228,11 @@ exports.n8nDocumentationToolsFinal = [
                 },
             },
             required: ['templateId'],
+        },
+        annotations: {
+            title: 'Get Template',
+            readOnlyHint: true,
+            idempotentHint: true,
         },
     },
     {
@@ -293,6 +324,11 @@ exports.n8nDocumentationToolsFinal = [
                 },
             },
         },
+        annotations: {
+            title: 'Search Templates',
+            readOnlyHint: true,
+            idempotentHint: true,
+        },
     },
     {
         name: 'validate_workflow',
@@ -377,6 +413,11 @@ exports.n8nDocumentationToolsFinal = [
                 suggestions: { type: 'array', items: { type: 'string' } }
             },
             required: ['valid', 'summary']
+        },
+        annotations: {
+            title: 'Validate Workflow',
+            readOnlyHint: true,
+            idempotentHint: true,
         },
     },
 ];

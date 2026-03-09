@@ -18,21 +18,27 @@ npm run update:n8n:check
 # 4. Run update and skip tests (we'll test in CI)
 yes y | npm run update:n8n
 
-# 5. Create feature branch
+# 5. Refresh community nodes (standard practice!)
+npm run fetch:community
+npm run generate:docs
+
+# 6. Create feature branch
 git checkout -b update/n8n-X.X.X
 
-# 6. Update version in package.json (must be HIGHER than latest release!)
+# 7. Update version in package.json (must be HIGHER than latest release!)
 # Edit: "version": "2.XX.X" (not the version from the release list!)
 
-# 7. Update CHANGELOG.md
+# 8. Update CHANGELOG.md
 # - Change version number to match package.json
 # - Update date to today
 # - Update dependency versions
+# - Include community node refresh counts
 
-# 8. Update README badge
+# 9. Update README badge and node counts
 # Edit line 8: Change n8n version badge to new n8n version
+# Update total node count in description (core + community)
 
-# 9. Commit and push
+# 10. Commit and push
 git add -A
 git commit -m "chore: update n8n to X.X.X and bump version to 2.XX.X
 
@@ -41,7 +47,8 @@ git commit -m "chore: update n8n to X.X.X and bump version to 2.XX.X
 - Updated n8n-workflow from X.X.X to X.X.X
 - Updated @n8n/n8n-nodes-langchain from X.X.X to X.X.X
 - Rebuilt node database with XXX nodes (XXX from n8n-nodes-base, XXX from @n8n/n8n-nodes-langchain)
-- Updated README badge with new n8n version
+- Refreshed community nodes (XXX verified + XXX npm)
+- Updated README badge with new n8n version and node counts
 - Updated CHANGELOG with dependency changes
 
 Conceived by Romuald Członkowski - https://www.aiadvisors.pl/en
@@ -52,10 +59,10 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 git push -u origin update/n8n-X.X.X
 
-# 10. Create PR
+# 11. Create PR
 gh pr create --title "chore: update n8n to X.X.X" --body "Updates n8n and all related dependencies to the latest versions..."
 
-# 11. After PR is merged, verify release triggered
+# 12. After PR is merged, verify release triggered
 gh release list | head -1
 # If the new version appears, you're done!
 # If not, the version might have already been released - bump version again and create new PR

@@ -98,7 +98,6 @@ These are automatically set by the Railway template:
 |----------|--------------|-------------|
 | `AUTH_TOKEN` | `REPLACE_THIS...` | **⚠️ CHANGE IMMEDIATELY** |
 | `MCP_MODE` | `http` | Required for cloud deployment |
-| `USE_FIXED_HTTP` | `true` | Stable HTTP implementation |
 | `NODE_ENV` | `production` | Production optimizations |
 | `LOG_LEVEL` | `info` | Balanced logging |
 | `TRUST_PROXY` | `1` | Railway runs behind proxy |

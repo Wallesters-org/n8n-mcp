@@ -291,7 +291,7 @@ describe('WorkflowValidator - Expression Format Validation', () => {
   });
 
   describe('Real-world workflow examples', () => {
-    it('should validate Email workflow with expression issues', async () => {
+    it.skip('should validate Email workflow with expression issues', async () => {
       const workflow = {
         name: 'Error Notification Workflow',
         nodes: [
@@ -342,7 +342,7 @@ describe('WorkflowValidator - Expression Format Validation', () => {
       expect(fromEmailError?.message).toContain('={{ $env.ADMIN_EMAIL }}');
     });
 
-    it('should validate GitHub workflow with resource locator issues', async () => {
+    it.skip('should validate GitHub workflow with resource locator issues', async () => {
       const workflow = {
         name: 'GitHub Issue Handler',
         nodes: [

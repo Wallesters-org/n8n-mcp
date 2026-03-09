@@ -115,7 +115,15 @@ describe('NodeRepository - Core Functionality', () => {
         JSON.stringify([{ name: 'execute', displayName: 'Execute' }], null, 2),
         JSON.stringify([{ name: 'httpBasicAuth' }], null, 2),
         null, // outputs
-        null  // outputNames
+        null, // outputNames
+        0, // isCommunity
+        0, // isVerified
+        null, // authorName
+        null, // authorGithubUrl
+        null, // npmPackageName
+        null, // npmVersion
+        0, // npmDownloads
+        null  // communityFetchedAt
       );
     });
     
@@ -171,7 +179,18 @@ describe('NodeRepository - Core Functionality', () => {
         credentials_required: JSON.stringify([{ name: 'httpBasicAuth' }]),
         documentation: 'HTTP docs',
         outputs: null,
-        output_names: null
+        output_names: null,
+        is_community: 0,
+        is_verified: 0,
+        author_name: null,
+        author_github_url: null,
+        npm_package_name: null,
+        npm_version: null,
+        npm_downloads: 0,
+        community_fetched_at: null,
+        npm_readme: null,
+        ai_documentation_summary: null,
+        ai_summary_generated_at: null,
       };
 
       mockAdapter._setMockData('node:nodes-base.httpRequest', mockRow);
@@ -198,7 +217,18 @@ describe('NodeRepository - Core Functionality', () => {
         credentials: [{ name: 'httpBasicAuth' }],
         hasDocumentation: true,
         outputs: null,
-        outputNames: null
+        outputNames: null,
+        isCommunity: false,
+        isVerified: false,
+        authorName: null,
+        authorGithubUrl: null,
+        npmPackageName: null,
+        npmVersion: null,
+        npmDownloads: 0,
+        communityFetchedAt: null,
+        npmReadme: null,
+        aiDocumentationSummary: null,
+        aiSummaryGeneratedAt: null,
       });
     });
     
@@ -228,7 +258,18 @@ describe('NodeRepository - Core Functionality', () => {
         credentials_required: '{"valid": "json"}',
         documentation: null,
         outputs: null,
-        output_names: null
+        output_names: null,
+        is_community: 0,
+        is_verified: 0,
+        author_name: null,
+        author_github_url: null,
+        npm_package_name: null,
+        npm_version: null,
+        npm_downloads: 0,
+        community_fetched_at: null,
+        npm_readme: null,
+        ai_documentation_summary: null,
+        ai_summary_generated_at: null,
       };
 
       mockAdapter._setMockData('node:nodes-base.broken', mockRow);
@@ -240,7 +281,7 @@ describe('NodeRepository - Core Functionality', () => {
       expect(result?.credentials).toEqual({ valid: 'json' }); // successfully parsed
     });
   });
-  
+
   describe('getAITools', () => {
     it('should retrieve all AI tools sorted by display name', () => {
       const mockAITools = [
@@ -379,7 +420,18 @@ describe('NodeRepository - Core Functionality', () => {
         credentials_required: '[]',
         documentation: null,
         outputs: null,
-        output_names: null
+        output_names: null,
+        is_community: 0,
+        is_verified: 0,
+        author_name: null,
+        author_github_url: null,
+        npm_package_name: null,
+        npm_version: null,
+        npm_downloads: 0,
+        community_fetched_at: null,
+        npm_readme: null,
+        ai_documentation_summary: null,
+        ai_summary_generated_at: null,
       };
 
       mockAdapter._setMockData('node:nodes-base.bool-test', mockRow);

@@ -22,6 +22,10 @@ export type {
   SessionState
 } from './types/session-state';
 
+// UI module exports
+export type { UIAppConfig, UIMetadata } from './mcp/ui/types';
+export { UI_APP_CONFIGS } from './mcp/ui/app-configs';
+
 // Re-export MCP SDK types for convenience
 export type {
   Tool,

@@ -1,7 +1,14 @@
 #!/usr/bin/env node
 /**
- * Fixed HTTP server for n8n-MCP that properly handles StreamableHTTPServerTransport initialization
- * This implementation ensures the transport is properly initialized before handling requests
+ * @deprecated This fixed HTTP server is deprecated as of v2.31.8.
+ * Use SingleSessionHTTPServer from http-server-single-session.ts instead.
+ *
+ * This implementation does not support SSE streaming required by clients like OpenAI Codex.
+ * See: https://github.com/czlonkowski/n8n-mcp/issues/524
+ *
+ * Original purpose: Fixed HTTP server for n8n-MCP that properly handles
+ * StreamableHTTPServerTransport initialization by bypassing it entirely.
+ * This implementation ensures the transport is properly initialized before handling requests.
  */
 import express from 'express';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -125,7 +132,18 @@ async function shutdown() {
   }
 }
 
+/**
+ * @deprecated Use SingleSessionHTTPServer from http-server-single-session.ts instead.
+ * This function does not support SSE streaming required by clients like OpenAI Codex.
+ */
 export async function startFixedHTTPServer() {
+  // Log deprecation warning
+  logger.warn(
+    'DEPRECATION: startFixedHTTPServer() is deprecated as of v2.31.8. ' +
+    'Use SingleSessionHTTPServer which supports SSE streaming. ' +
+    'See: https://github.com/czlonkowski/n8n-mcp/issues/524'
+  );
+
   validateEnvironment();
   
   const app = express();

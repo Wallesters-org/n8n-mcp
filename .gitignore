@@ -138,5 +138,9 @@ n8n-mcp-wrapper.sh
 # MCP configuration files
 .mcp.json
 
+# UI Apps build output
+ui-apps/dist/
+ui-apps/node_modules/
+
 # Telemetry configuration (user-specific)
 ~/.n8n-mcp/

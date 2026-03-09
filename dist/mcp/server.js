@@ -43,12 +43,14 @@ const types_js_1 = require("@modelcontextprotocol/sdk/types.js");
 const fs_1 = require("fs");
 const path_1 = __importDefault(require("path"));
 const tools_1 = require("./tools");
+const ui_1 = require("./ui");
 const tools_n8n_manager_1 = require("./tools-n8n-manager");
 const tools_n8n_friendly_1 = require("./tools-n8n-friendly");
 const workflow_examples_1 = require("./workflow-examples");
 const logger_1 = require("../utils/logger");
 const node_repository_1 = require("../database/node-repository");
 const database_adapter_1 = require("../database/database-adapter");
+const shared_database_1 = require("../database/shared-database");
 const property_filter_1 = require("../services/property-filter");
 const task_templates_1 = require("../services/task-templates");
 const config_validator_1 = require("../services/config-validator");
@@ -80,6 +82,9 @@ class N8NDocumentationMCPServer {
         this.previousToolTimestamp = Date.now();
         this.earlyLogger = null;
         this.disabledToolsCache = null;
+        this.useSharedDatabase = false;
+        this.sharedDbState = null;
+        this.isShutdown = false;
         this.dbHealthChecked = false;
         this.instanceContext = instanceContext;
         this.earlyLogger = earlyLogger || null;
@@ -144,15 +149,29 @@ class N8NDocumentationMCPServer {
         }, {
             capabilities: {
                 tools: {},
+                resources: {},
             },
         });
+        ui_1.UIAppRegistry.load();
         this.setupHandlers();
     }
     async close() {
         try {
+            await this.initialized;
+        }
+        catch (error) {
+            logger_1.logger.debug('Initialization had failed, proceeding with cleanup', {
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+        try {
             await this.server.close();
             this.cache.destroy();
-            if (this.db) {
+            if (this.useSharedDatabase && this.sharedDbState) {
+                (0, shared_database_1.releaseSharedDatabase)(this.sharedDbState);
+                logger_1.logger.debug('Released shared database reference');
+            }
+            else if (this.db) {
                 try {
                     this.db.close();
                 }
@@ -166,6 +185,7 @@ class N8NDocumentationMCPServer {
             this.repository = null;
             this.templateService = null;
             this.earlyLogger = null;
+            this.sharedDbState = null;
         }
         catch (error) {
             logger_1.logger.warn('Error closing MCP server', { error: error instanceof Error ? error.message : String(error) });
@@ -177,17 +197,27 @@ class N8NDocumentationMCPServer {
                 this.earlyLogger.logCheckpoint(startup_checkpoints_1.STARTUP_CHECKPOINTS.DATABASE_CONNECTING);
             }
             logger_1.logger.debug('Database initialization starting...', { dbPath });
-            this.db = await (0, database_adapter_1.createDatabaseAdapter)(dbPath);
-            logger_1.logger.debug('Database adapter created');
             if (dbPath === ':memory:') {
+                this.db = await (0, database_adapter_1.createDatabaseAdapter)(dbPath);
+                logger_1.logger.debug('Database adapter created (in-memory mode)');
                 await this.initializeInMemorySchema();
                 logger_1.logger.debug('In-memory schema initialized');
+                this.repository = new node_repository_1.NodeRepository(this.db);
+                this.templateService = new template_service_1.TemplateService(this.db);
+                enhanced_config_validator_1.EnhancedConfigValidator.initializeSimilarityServices(this.repository);
+                this.useSharedDatabase = false;
             }
-            this.repository = new node_repository_1.NodeRepository(this.db);
+            else {
+                const sharedState = await (0, shared_database_1.getSharedDatabase)(dbPath);
+                this.db = sharedState.db;
+                this.repository = sharedState.repository;
+                this.templateService = sharedState.templateService;
+                this.sharedDbState = sharedState;
+                this.useSharedDatabase = true;
+                logger_1.logger.debug('Using shared database connection');
+            }
             logger_1.logger.debug('Node repository initialized');
-            this.templateService = new template_service_1.TemplateService(this.db);
             logger_1.logger.debug('Template service initialized');
-            enhanced_config_validator_1.EnhancedConfigValidator.initializeSimilarityServices(this.repository);
             logger_1.logger.debug('Similarity services initialized');
             if (this.earlyLogger) {
                 this.earlyLogger.logCheckpoint(startup_checkpoints_1.STARTUP_CHECKPOINTS.DATABASE_CONNECTED);
@@ -341,6 +371,7 @@ class N8NDocumentationMCPServer {
                 protocolVersion: negotiationResult.version,
                 capabilities: {
                     tools: {},
+                    resources: {},
                 },
                 serverInfo: {
                     name: 'n8n-documentation-mcp',
@@ -396,6 +427,7 @@ class N8NDocumentationMCPServer {
                     description: tool.description
                 });
             });
+            ui_1.UIAppRegistry.injectToolMeta(tools);
             return { tools };
         });
         this.server.setRequestHandler(types_js_1.CallToolRequestSchema, async (request) => {
@@ -425,6 +457,18 @@ class N8NDocumentationMCPServer {
                 };
             }
             let processedArgs = args;
+            if (typeof args === 'string') {
+                try {
+                    const parsed = JSON.parse(args);
+                    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                        processedArgs = parsed;
+                        logger_1.logger.warn(`Coerced stringified args object for tool "${name}"`);
+                    }
+                }
+                catch {
+                    logger_1.logger.warn(`Tool "${name}" received string args that are not valid JSON`);
+                }
+            }
             if (args && typeof args === 'object' && 'output' in args) {
                 try {
                     const possibleNestedData = args.output;
@@ -453,6 +497,7 @@ class N8NDocumentationMCPServer {
                     });
                 }
             }
+            processedArgs = this.coerceStringifiedJsonParams(name, processedArgs);
             try {
                 logger_1.logger.debug(`Executing tool: ${name}`, { args: processedArgs });
                 const startTime = Date.now();
@@ -524,6 +569,13 @@ class N8NDocumentationMCPServer {
                 if (name.startsWith('validate_') && (errorMessage.includes('config') || errorMessage.includes('nodeType'))) {
                     helpfulMessage += '\n\nFor validation tools:\n- nodeType should be a string (e.g., "nodes-base.webhook")\n- config should be an object (e.g., {})';
                 }
+                try {
+                    const argDiag = processedArgs && typeof processedArgs === 'object'
+                        ? Object.entries(processedArgs).map(([k, v]) => `${k}: ${typeof v}`).join(', ')
+                        : `args type: ${typeof processedArgs}`;
+                    helpfulMessage += `\n\n[Diagnostic] Received arg types: {${argDiag}}`;
+                }
+                catch { }
                 return {
                     content: [
                         {
@@ -534,6 +586,39 @@ class N8NDocumentationMCPServer {
                     isError: true,
                 };
             }
+        });
+        this.server.setRequestHandler(types_js_1.ListResourcesRequestSchema, async () => {
+            const apps = ui_1.UIAppRegistry.getAllApps();
+            return {
+                resources: apps
+                    .filter(app => app.html !== null)
+                    .map(app => ({
+                    uri: app.config.uri,
+                    name: app.config.displayName,
+                    description: app.config.description,
+                    mimeType: app.config.mimeType,
+                })),
+            };
+        });
+        this.server.setRequestHandler(types_js_1.ReadResourceRequestSchema, async (request) => {
+            const uri = request.params.uri;
+            const match = uri.match(/^ui:\/\/n8n-mcp\/(.+)$/);
+            if (!match) {
+                throw new Error(`Unknown resource URI: ${uri}`);
+            }
+            const app = ui_1.UIAppRegistry.getAppById(match[1]);
+            if (!app || !app.html) {
+                throw new Error(`UI app not found or not built: ${match[1]}`);
+            }
+            return {
+                contents: [
+                    {
+                        uri: app.config.uri,
+                        mimeType: app.config.mimeType,
+                        text: app.html,
+                    },
+                ],
+            };
         });
     }
     sanitizeValidationResult(result, toolName) {
@@ -730,6 +815,93 @@ class N8NDocumentationMCPServer {
         }
         return true;
     }
+    coerceStringifiedJsonParams(toolName, args) {
+        if (!args || typeof args !== 'object')
+            return args;
+        const allTools = [...tools_1.n8nDocumentationToolsFinal, ...tools_n8n_manager_1.n8nManagementTools];
+        const tool = allTools.find(t => t.name === toolName);
+        if (!tool?.inputSchema?.properties)
+            return args;
+        const properties = tool.inputSchema.properties;
+        const coerced = { ...args };
+        let coercedAny = false;
+        for (const [key, value] of Object.entries(coerced)) {
+            if (value === undefined || value === null)
+                continue;
+            const propSchema = properties[key];
+            if (!propSchema)
+                continue;
+            const expectedType = propSchema.type;
+            if (!expectedType)
+                continue;
+            const actualType = typeof value;
+            if (expectedType === 'string' && actualType === 'string')
+                continue;
+            if ((expectedType === 'number' || expectedType === 'integer') && actualType === 'number')
+                continue;
+            if (expectedType === 'boolean' && actualType === 'boolean')
+                continue;
+            if (expectedType === 'object' && actualType === 'object' && !Array.isArray(value))
+                continue;
+            if (expectedType === 'array' && Array.isArray(value))
+                continue;
+            if (actualType === 'string') {
+                const trimmed = value.trim();
+                if (expectedType === 'object' && trimmed.startsWith('{')) {
+                    try {
+                        const parsed = JSON.parse(trimmed);
+                        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+                            coerced[key] = parsed;
+                            coercedAny = true;
+                        }
+                    }
+                    catch { }
+                    continue;
+                }
+                if (expectedType === 'array' && trimmed.startsWith('[')) {
+                    try {
+                        const parsed = JSON.parse(trimmed);
+                        if (Array.isArray(parsed)) {
+                            coerced[key] = parsed;
+                            coercedAny = true;
+                        }
+                    }
+                    catch { }
+                    continue;
+                }
+                if (expectedType === 'number' || expectedType === 'integer') {
+                    const num = Number(trimmed);
+                    if (!isNaN(num) && trimmed !== '') {
+                        coerced[key] = expectedType === 'integer' ? Math.trunc(num) : num;
+                        coercedAny = true;
+                    }
+                    continue;
+                }
+                if (expectedType === 'boolean') {
+                    if (trimmed === 'true') {
+                        coerced[key] = true;
+                        coercedAny = true;
+                    }
+                    else if (trimmed === 'false') {
+                        coerced[key] = false;
+                        coercedAny = true;
+                    }
+                    continue;
+                }
+            }
+            if (expectedType === 'string' && (actualType === 'number' || actualType === 'boolean')) {
+                coerced[key] = String(value);
+                coercedAny = true;
+                continue;
+            }
+        }
+        if (coercedAny) {
+            logger_1.logger.warn(`Coerced mistyped params for tool "${toolName}"`, {
+                original: Object.fromEntries(Object.entries(args).map(([k, v]) => [k, `${typeof v}: ${typeof v === 'string' ? v.substring(0, 80) : v}`])),
+            });
+        }
+        return coerced;
+    }
     async executeTool(name, args) {
         args = args || {};
         const disabledTools = this.getDisabledTools();
@@ -750,7 +922,11 @@ class N8NDocumentationMCPServer {
             case 'search_nodes':
                 this.validateToolParams(name, args, ['query']);
                 const limit = args.limit !== undefined ? Number(args.limit) || 20 : 20;
-                return this.searchNodes(args.query, limit, { mode: args.mode, includeExamples: args.includeExamples });
+                return this.searchNodes(args.query, limit, {
+                    mode: args.mode,
+                    includeExamples: args.includeExamples,
+                    source: args.source
+                });
             case 'get_node':
                 this.validateToolParams(name, args, ['nodeType']);
                 if (args.mode === 'docs') {
@@ -1089,6 +1265,19 @@ class N8NDocumentationMCPServer {
             }
         }
         try {
+            let sourceFilter = '';
+            const sourceValue = options?.source || 'all';
+            switch (sourceValue) {
+                case 'core':
+                    sourceFilter = 'AND n.is_community = 0';
+                    break;
+                case 'community':
+                    sourceFilter = 'AND n.is_community = 1';
+                    break;
+                case 'verified':
+                    sourceFilter = 'AND n.is_community = 1 AND n.is_verified = 1';
+                    break;
+            }
             const nodes = this.db.prepare(`
         SELECT
           n.*,
@@ -1096,6 +1285,7 @@ class N8NDocumentationMCPServer {
         FROM nodes n
         JOIN nodes_fts ON n.rowid = nodes_fts.rowid
         WHERE nodes_fts MATCH ?
+        ${sourceFilter}
         ORDER BY
           CASE
             WHEN LOWER(n.display_name) = LOWER(?) THEN 0
@@ -1128,15 +1318,28 @@ class N8NDocumentationMCPServer {
             }
             const result = {
                 query,
-                results: scoredNodes.map(node => ({
-                    nodeType: node.node_type,
-                    workflowNodeType: (0, node_utils_1.getWorkflowNodeType)(node.package_name, node.node_type),
-                    displayName: node.display_name,
-                    description: node.description,
-                    category: node.category,
-                    package: node.package_name,
-                    relevance: this.calculateRelevance(node, cleanedQuery)
-                })),
+                results: scoredNodes.map(node => {
+                    const nodeResult = {
+                        nodeType: node.node_type,
+                        workflowNodeType: (0, node_utils_1.getWorkflowNodeType)(node.package_name, node.node_type),
+                        displayName: node.display_name,
+                        description: node.description,
+                        category: node.category,
+                        package: node.package_name,
+                        relevance: this.calculateRelevance(node, cleanedQuery)
+                    };
+                    if (node.is_community === 1) {
+                        nodeResult.isCommunity = true;
+                        nodeResult.isVerified = node.is_verified === 1;
+                        if (node.author_name) {
+                            nodeResult.authorName = node.author_name;
+                        }
+                        if (node.npm_downloads) {
+                            nodeResult.npmDownloads = node.npm_downloads;
+                        }
+                    }
+                    return nodeResult;
+                }),
                 totalCount: scoredNodes.length
             };
             if (mode !== 'OR') {
@@ -1298,24 +1501,51 @@ class N8NDocumentationMCPServer {
     async searchNodesLIKE(query, limit, options) {
         if (!this.db)
             throw new Error('Database not initialized');
+        let sourceFilter = '';
+        const sourceValue = options?.source || 'all';
+        switch (sourceValue) {
+            case 'core':
+                sourceFilter = 'AND is_community = 0';
+                break;
+            case 'community':
+                sourceFilter = 'AND is_community = 1';
+                break;
+            case 'verified':
+                sourceFilter = 'AND is_community = 1 AND is_verified = 1';
+                break;
+        }
         if (query.startsWith('"') && query.endsWith('"')) {
             const exactPhrase = query.slice(1, -1);
             const nodes = this.db.prepare(`
         SELECT * FROM nodes
-        WHERE node_type LIKE ? OR display_name LIKE ? OR description LIKE ?
+        WHERE (node_type LIKE ? OR display_name LIKE ? OR description LIKE ?)
+        ${sourceFilter}
         LIMIT ?
       `).all(`%${exactPhrase}%`, `%${exactPhrase}%`, `%${exactPhrase}%`, limit * 3);
             const rankedNodes = this.rankSearchResults(nodes, exactPhrase, limit);
             const result = {
                 query,
-                results: rankedNodes.map(node => ({
-                    nodeType: node.node_type,
-                    workflowNodeType: (0, node_utils_1.getWorkflowNodeType)(node.package_name, node.node_type),
-                    displayName: node.display_name,
-                    description: node.description,
-                    category: node.category,
-                    package: node.package_name
-                })),
+                results: rankedNodes.map(node => {
+                    const nodeResult = {
+                        nodeType: node.node_type,
+                        workflowNodeType: (0, node_utils_1.getWorkflowNodeType)(node.package_name, node.node_type),
+                        displayName: node.display_name,
+                        description: node.description,
+                        category: node.category,
+                        package: node.package_name
+                    };
+                    if (node.is_community === 1) {
+                        nodeResult.isCommunity = true;
+                        nodeResult.isVerified = node.is_verified === 1;
+                        if (node.author_name) {
+                            nodeResult.authorName = node.author_name;
+                        }
+                        if (node.npm_downloads) {
+                            nodeResult.npmDownloads = node.npm_downloads;
+                        }
+                    }
+                    return nodeResult;
+                }),
                 totalCount: rankedNodes.length
             };
             if (options?.includeExamples) {
@@ -1354,21 +1584,35 @@ class N8NDocumentationMCPServer {
         const params = words.flatMap(w => [`%${w}%`, `%${w}%`, `%${w}%`]);
         params.push(limit * 3);
         const nodes = this.db.prepare(`
-      SELECT DISTINCT * FROM nodes 
-      WHERE ${conditions}
+      SELECT DISTINCT * FROM nodes
+      WHERE (${conditions})
+      ${sourceFilter}
       LIMIT ?
     `).all(...params);
         const rankedNodes = this.rankSearchResults(nodes, query, limit);
         const result = {
             query,
-            results: rankedNodes.map(node => ({
-                nodeType: node.node_type,
-                workflowNodeType: (0, node_utils_1.getWorkflowNodeType)(node.package_name, node.node_type),
-                displayName: node.display_name,
-                description: node.description,
-                category: node.category,
-                package: node.package_name
-            })),
+            results: rankedNodes.map(node => {
+                const nodeResult = {
+                    nodeType: node.node_type,
+                    workflowNodeType: (0, node_utils_1.getWorkflowNodeType)(node.package_name, node.node_type),
+                    displayName: node.display_name,
+                    description: node.description,
+                    category: node.category,
+                    package: node.package_name
+                };
+                if (node.is_community === 1) {
+                    nodeResult.isCommunity = true;
+                    nodeResult.isVerified = node.is_verified === 1;
+                    if (node.author_name) {
+                        nodeResult.authorName = node.author_name;
+                    }
+                    if (node.npm_downloads) {
+                        nodeResult.npmDownloads = node.npm_downloads;
+                    }
+                }
+                return nodeResult;
+            }),
             totalCount: rankedNodes.length
         };
         if (options?.includeExamples) {
@@ -1545,14 +1789,16 @@ class N8NDocumentationMCPServer {
             throw new Error('Database not initialized');
         const normalizedType = node_type_normalizer_1.NodeTypeNormalizer.normalizeToFullForm(nodeType);
         let node = this.db.prepare(`
-      SELECT node_type, display_name, documentation, description 
-      FROM nodes 
+      SELECT node_type, display_name, documentation, description,
+             ai_documentation_summary, ai_summary_generated_at
+      FROM nodes
       WHERE node_type = ?
     `).get(normalizedType);
         if (!node && normalizedType !== nodeType) {
             node = this.db.prepare(`
-        SELECT node_type, display_name, documentation, description 
-        FROM nodes 
+        SELECT node_type, display_name, documentation, description,
+               ai_documentation_summary, ai_summary_generated_at
+        FROM nodes
         WHERE node_type = ?
       `).get(nodeType);
         }
@@ -1560,8 +1806,9 @@ class N8NDocumentationMCPServer {
             const alternatives = (0, node_utils_1.getNodeTypeAlternatives)(normalizedType);
             for (const alt of alternatives) {
                 node = this.db.prepare(`
-          SELECT node_type, display_name, documentation, description 
-          FROM nodes 
+          SELECT node_type, display_name, documentation, description,
+                 ai_documentation_summary, ai_summary_generated_at
+          FROM nodes
           WHERE node_type = ?
         `).get(alt);
                 if (node)
@@ -1571,6 +1818,9 @@ class N8NDocumentationMCPServer {
         if (!node) {
             throw new Error(`Node ${nodeType} not found`);
         }
+        const aiDocSummary = node.ai_documentation_summary
+            ? this.safeJsonParse(node.ai_documentation_summary, null)
+            : null;
         if (!node.documentation) {
             const essentials = await this.getNodeEssentials(nodeType);
             return {
@@ -1590,7 +1840,9 @@ ${essentials?.commonProperties?.length > 0 ?
 ## Note
 Full documentation is being prepared. For now, use get_node_essentials for configuration help.
 `,
-                hasDocumentation: false
+                hasDocumentation: false,
+                aiDocumentationSummary: aiDocSummary,
+                aiSummaryGeneratedAt: node.ai_summary_generated_at || null,
             };
         }
         return {
@@ -1598,7 +1850,17 @@ Full documentation is being prepared. For now, use get_node_essentials for confi
             displayName: node.display_name || 'Unknown Node',
             documentation: node.documentation,
             hasDocumentation: true,
+            aiDocumentationSummary: aiDocSummary,
+            aiSummaryGeneratedAt: node.ai_summary_generated_at || null,
         };
+    }
+    safeJsonParse(json, defaultValue = null) {
+        try {
+            return JSON.parse(json);
+        }
+        catch {
+            return defaultValue;
+        }
     }
     async getDatabaseStatistics() {
         await this.ensureInitialized();
@@ -2799,7 +3061,26 @@ Full documentation is being prepared. For now, use get_node_essentials for confi
         process.stdin.resume();
     }
     async shutdown() {
+        if (this.isShutdown) {
+            logger_1.logger.debug('Shutdown already called, skipping');
+            return;
+        }
+        this.isShutdown = true;
         logger_1.logger.info('Shutting down MCP server...');
+        try {
+            await this.initialized;
+        }
+        catch (error) {
+            logger_1.logger.debug('Initialization had failed, proceeding with cleanup', {
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+        try {
+            await this.server.close();
+        }
+        catch (error) {
+            logger_1.logger.error('Error closing MCP server:', error);
+        }
         if (this.cache) {
             try {
                 this.cache.destroy();
@@ -2809,15 +3090,29 @@ Full documentation is being prepared. For now, use get_node_essentials for confi
                 logger_1.logger.error('Error cleaning up cache:', error);
             }
         }
-        if (this.db) {
+        if (this.useSharedDatabase && this.sharedDbState) {
             try {
-                await this.db.close();
+                (0, shared_database_1.releaseSharedDatabase)(this.sharedDbState);
+                logger_1.logger.info('Released shared database reference');
+            }
+            catch (error) {
+                logger_1.logger.error('Error releasing shared database:', error);
+            }
+        }
+        else if (this.db) {
+            try {
+                this.db.close();
                 logger_1.logger.info('Database connection closed');
             }
             catch (error) {
                 logger_1.logger.error('Error closing database:', error);
             }
         }
+        this.db = null;
+        this.repository = null;
+        this.templateService = null;
+        this.earlyLogger = null;
+        this.sharedDbState = null;
     }
 }
 exports.N8NDocumentationMCPServer = N8NDocumentationMCPServer;

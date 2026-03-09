@@ -28,15 +28,23 @@ class N8nNodeLoader {
         }
         return results;
     }
+    resolvePackageDir(packagePath) {
+        const pkgJsonPath = require.resolve(`${packagePath}/package.json`);
+        return path_1.default.dirname(pkgJsonPath);
+    }
+    loadNodeModule(absolutePath) {
+        return require(absolutePath);
+    }
     async loadPackageNodes(packageName, packagePath, packageJson) {
         const n8nConfig = packageJson.n8n || {};
         const nodes = [];
+        const packageDir = this.resolvePackageDir(packagePath);
         const nodesList = n8nConfig.nodes || [];
         if (Array.isArray(nodesList)) {
             for (const nodePath of nodesList) {
                 try {
-                    const fullPath = require.resolve(`${packagePath}/${nodePath}`);
-                    const nodeModule = require(fullPath);
+                    const fullPath = path_1.default.join(packageDir, nodePath);
+                    const nodeModule = this.loadNodeModule(fullPath);
                     const nodeNameMatch = nodePath.match(/\/([^\/]+)\.node\.(js|ts)$/);
                     const nodeName = nodeNameMatch ? nodeNameMatch[1] : path_1.default.basename(nodePath, '.node.js');
                     const NodeClass = nodeModule.default || nodeModule[nodeName] || Object.values(nodeModule)[0];
@@ -56,8 +64,8 @@ class N8nNodeLoader {
         else {
             for (const [nodeName, nodePath] of Object.entries(nodesList)) {
                 try {
-                    const fullPath = require.resolve(`${packagePath}/${nodePath}`);
-                    const nodeModule = require(fullPath);
+                    const fullPath = path_1.default.join(packageDir, nodePath);
+                    const nodeModule = this.loadNodeModule(fullPath);
                     const NodeClass = nodeModule.default || nodeModule[nodeName] || Object.values(nodeModule)[0];
                     if (NodeClass) {
                         nodes.push({ packageName, nodeName, NodeClass });

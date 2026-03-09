@@ -1067,7 +1067,7 @@ describe('WorkflowValidator - Comprehensive Tests', () => {
 
       const result = await validator.validateWorkflow(workflow as any);
 
-      expect(result.warnings.some(w => w.message.includes('Node is not connected to any other nodes') && w.nodeName === 'Orphaned')).toBe(true);
+      expect(result.warnings.some(w => w.message.includes('not reachable from any trigger node') && w.nodeName === 'Orphaned')).toBe(true);
     });
 
     it('should detect cycles in workflow', async () => {
@@ -1987,7 +1987,7 @@ describe('WorkflowValidator - Comprehensive Tests', () => {
 
       // Warnings
       expect(result.warnings.some(w => w.message.includes('Connection to disabled node'))).toBe(true);
-      expect(result.warnings.some(w => w.message.includes('Node is not connected') && w.nodeName === 'Orphaned')).toBe(true);
+      expect(result.warnings.some(w => w.message.includes('not reachable from any trigger node') && w.nodeName === 'Orphaned')).toBe(true);
       expect(result.warnings.some(w => w.message.includes('AI Agent has no tools connected'))).toBe(true);
 
       // Statistics

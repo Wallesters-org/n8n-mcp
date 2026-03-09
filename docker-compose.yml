@@ -12,7 +12,8 @@ services:
     environment:
       # Mode configuration
       MCP_MODE: ${MCP_MODE:-http}
-      USE_FIXED_HTTP: ${USE_FIXED_HTTP:-true}  # Use fixed implementation for stability
+      # NOTE: USE_FIXED_HTTP is deprecated. SingleSessionHTTPServer is now the default.
+      # See: https://github.com/czlonkowski/n8n-mcp/issues/524
       AUTH_TOKEN: ${AUTH_TOKEN:?AUTH_TOKEN is required for HTTP mode}
       
       # Application settings

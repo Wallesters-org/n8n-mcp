@@ -4,19 +4,13 @@ exports.TelemetryBatchProcessor = void 0;
 const telemetry_types_1 = require("./telemetry-types");
 const telemetry_error_1 = require("./telemetry-error");
 const logger_1 = require("../utils/logger");
-function toSnakeCase(obj) {
-    if (obj === null || obj === undefined)
-        return obj;
-    if (Array.isArray(obj))
-        return obj.map(toSnakeCase);
-    if (typeof obj !== 'object')
-        return obj;
+function keyToSnakeCase(key) {
+    return key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+}
+function mutationToSupabaseFormat(mutation) {
     const result = {};
-    for (const key in obj) {
-        if (obj.hasOwnProperty(key)) {
-            const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-            result[snakeKey] = toSnakeCase(obj[key]);
-        }
+    for (const [key, value] of Object.entries(mutation)) {
+        result[keyToSnakeCase(key)] = value;
     }
     return result;
 }
@@ -39,26 +33,36 @@ class TelemetryBatchProcessor {
         this.flushTimes = [];
         this.deadLetterQueue = [];
         this.maxDeadLetterSize = 100;
+        this.eventListeners = {};
+        this.started = false;
         this.circuitBreaker = new telemetry_error_1.TelemetryCircuitBreaker();
     }
     start() {
         if (!this.isEnabled() || !this.supabase)
             return;
+        if (this.started) {
+            logger_1.logger.debug('Telemetry batch processor already started, skipping');
+            return;
+        }
         this.flushTimer = setInterval(() => {
             this.flush();
         }, telemetry_types_1.TELEMETRY_CONFIG.BATCH_FLUSH_INTERVAL);
         if (typeof this.flushTimer === 'object' && 'unref' in this.flushTimer) {
             this.flushTimer.unref();
         }
-        process.on('beforeExit', () => this.flush());
-        process.on('SIGINT', () => {
+        this.eventListeners.beforeExit = () => this.flush();
+        this.eventListeners.sigint = () => {
             this.flush();
             process.exit(0);
-        });
-        process.on('SIGTERM', () => {
+        };
+        this.eventListeners.sigterm = () => {
             this.flush();
             process.exit(0);
-        });
+        };
+        process.on('beforeExit', this.eventListeners.beforeExit);
+        process.on('SIGINT', this.eventListeners.sigint);
+        process.on('SIGTERM', this.eventListeners.sigterm);
+        this.started = true;
         logger_1.logger.debug('Telemetry batch processor started');
     }
     stop() {
@@ -66,6 +70,17 @@ class TelemetryBatchProcessor {
             clearInterval(this.flushTimer);
             this.flushTimer = undefined;
         }
+        if (this.eventListeners.beforeExit) {
+            process.removeListener('beforeExit', this.eventListeners.beforeExit);
+        }
+        if (this.eventListeners.sigint) {
+            process.removeListener('SIGINT', this.eventListeners.sigint);
+        }
+        if (this.eventListeners.sigterm) {
+            process.removeListener('SIGTERM', this.eventListeners.sigterm);
+        }
+        this.eventListeners = {};
+        this.started = false;
         logger_1.logger.debug('Telemetry batch processor stopped');
     }
     async flush(events, workflows, mutations) {
@@ -185,7 +200,7 @@ class TelemetryBatchProcessor {
             const batches = this.createBatches(mutations, telemetry_types_1.TELEMETRY_CONFIG.MAX_BATCH_SIZE);
             for (const batch of batches) {
                 const result = await this.executeWithRetry(async () => {
-                    const snakeCaseBatch = batch.map(mutation => toSnakeCase(mutation));
+                    const snakeCaseBatch = batch.map(mutation => mutationToSupabaseFormat(mutation));
                     const { error } = await this.supabase
                         .from('workflow_mutations')
                         .insert(snakeCaseBatch);

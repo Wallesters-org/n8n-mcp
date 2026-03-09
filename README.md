@@ -5,23 +5,24 @@
 [![npm version](https://img.shields.io/npm/v/n8n-mcp.svg)](https://www.npmjs.com/package/n8n-mcp)
 [![codecov](https://codecov.io/gh/czlonkowski/n8n-mcp/graph/badge.svg?token=YOUR_TOKEN)](https://codecov.io/gh/czlonkowski/n8n-mcp)
 [![Tests](https://img.shields.io/badge/tests-3336%20passing-brightgreen.svg)](https://github.com/czlonkowski/n8n-mcp/actions)
-[![n8n version](https://img.shields.io/badge/n8n-2.1.4-orange.svg)](https://github.com/n8n-io/n8n)
+[![n8n version](https://img.shields.io/badge/n8n-2.10.3-orange.svg)](https://github.com/n8n-io/n8n)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io%2Fczlonkowski%2Fn8n--mcp-green.svg)](https://github.com/czlonkowski/n8n-mcp/pkgs/container/n8n-mcp)
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/n8n-mcp?referralCode=n8n-mcp)
 
-A Model Context Protocol (MCP) server that provides AI assistants with comprehensive access to n8n node documentation, properties, and operations. Deploy in minutes to give Claude and other AI assistants deep knowledge about n8n's 545 workflow automation nodes.
+A Model Context Protocol (MCP) server that provides AI assistants with comprehensive access to n8n node documentation, properties, and operations. Deploy in minutes to give Claude and other AI assistants deep knowledge about n8n's 1,236 workflow automation nodes (806 core + 430 community).
 
 ## Overview
 
 n8n-MCP serves as a bridge between n8n's workflow automation platform and AI models, enabling them to understand and work with n8n nodes effectively. It provides structured access to:
 
-- 📚 **543 n8n nodes** from both n8n-nodes-base and @n8n/n8n-nodes-langchain
+- 📚 **1,084 n8n nodes** - 537 core nodes + 547 community nodes (301 verified)
 - 🔧 **Node properties** - 99% coverage with detailed schemas
 - ⚡ **Node operations** - 63.6% coverage of available actions
 - 📄 **Documentation** - 87% coverage from official n8n docs (including AI nodes)
-- 🤖 **AI tools** - 271 AI-capable nodes detected with full documentation
+- 🤖 **AI tools** - 265 AI-capable tool variants detected with full documentation
 - 💡 **Real-world examples** - 2,646 pre-extracted configurations from popular templates
 - 🎯 **Template library** - 2,709 workflow templates with 100% metadata coverage
+- 🌐 **Community nodes** - Search verified community integrations with `source` filter (NEW!)
 
 
 ## ⚠️ Important Safety Warning
@@ -940,7 +941,7 @@ Once connected, Claude can use these powerful tools:
 
 ### Core Tools (7 tools)
 - **`tools_documentation`** - Get documentation for any MCP tool (START HERE!)
-- **`search_nodes`** - Full-text search across all nodes. Use `includeExamples: true` for real-world configurations
+- **`search_nodes`** - Full-text search across all nodes. Use `source: 'community'|'verified'` for community nodes, `includeExamples: true` for configs
 - **`get_node`** - Unified node information tool with multiple modes (v2.26.0):
   - **Info mode** (default): `detail: 'minimal'|'standard'|'full'`, `includeExamples: true`
   - **Docs mode**: `mode: 'docs'` - Human-readable markdown documentation
@@ -1022,6 +1023,18 @@ get_node({
 search_nodes({
   query: "send email gmail",
   includeExamples: true       // Returns top 2 configs per node
+})
+
+// Search community nodes only
+search_nodes({
+  query: "scraping",
+  source: "community"         // Options: all, core, community, verified
+})
+
+// Search verified community nodes
+search_nodes({
+  query: "pdf",
+  source: "verified"          // Only verified community integrations
 })
 
 // Validate node configuration
@@ -1121,17 +1134,18 @@ npm run dev:http       # HTTP dev mode
 
 ## 📊 Metrics & Coverage
 
-Current database coverage (n8n v1.117.2):
+Current database coverage (n8n v2.2.3):
 
-- ✅ **541/541** nodes loaded (100%)
-- ✅ **541** nodes with properties (100%)
-- ✅ **470** nodes with documentation (87%)
-- ✅ **271** AI-capable tools detected
+- ✅ **1,084 total nodes** - 537 core + 547 community
+- ✅ **301 verified** community nodes from n8n Strapi API
+- ✅ **246 popular** npm community packages indexed
+- ✅ **470** nodes with documentation (87% core coverage)
+- ✅ **265** AI-capable tool variants detected
 - ✅ **2,646** pre-extracted template configurations
 - ✅ **2,709** workflow templates available (100% metadata coverage)
 - ✅ **AI Agent & LangChain nodes** fully documented
 - ⚡ **Average response time**: ~12ms
-- 💾 **Database size**: ~68MB (includes templates with metadata)
+- 💾 **Database size**: ~70MB (includes templates and community nodes)
 
 ## 🔄 Recent Updates
 

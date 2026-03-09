@@ -21,7 +21,6 @@ cd n8n-mcp
 # Create .env file with auth token
 cat > .env << EOF
 AUTH_TOKEN=$(openssl rand -base64 32)
-USE_FIXED_HTTP=true
 EOF
 
 # Start the server
@@ -46,7 +45,6 @@ docker pull ghcr.io/czlonkowski/n8n-mcp:latest
 docker run -d \
   --name n8n-mcp \
   -e MCP_MODE=http \
-  -e USE_FIXED_HTTP=true \
   -e AUTH_TOKEN=your-secure-token \
   -p 3000:3000 \
   ghcr.io/czlonkowski/n8n-mcp:latest

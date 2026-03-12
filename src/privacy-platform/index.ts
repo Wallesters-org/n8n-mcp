@@ -32,6 +32,22 @@ export {
 // Policy templates
 export { BUILTIN_POLICY_TEMPLATES, getBuiltinTemplate, getBuiltinTemplateKeys } from './policies/templates.js';
 
+// Engines
+export { EngineManager } from './engines/engine-manager.js';
+export type { EngineConfig, BrowserSession, SessionLaunchResult, EngineType, SessionStatus, ProxyConfig } from './engines/engine-manager.js';
+
+// Network
+export { NetworkManager } from './network/network-manager.js';
+export type { NetworkProfile, LeakCheckResult, NetworkHealthResult } from './network/network-manager.js';
+
+// Fingerprint
+export { FingerprintGenerator } from './fingerprint/generator.js';
+export type { FingerprintSpec, GeneratedFingerprint, CoherenceCheckResult } from './fingerprint/generator.js';
+
+// Workflow templates
+export { PRIVACY_WORKFLOW_TEMPLATES, getWorkflowTemplate, getWorkflowTemplateKeys } from './workflows/templates.js';
+export type { WorkflowTemplate } from './workflows/templates.js';
+
 // MCP
 export { PrivacyMCPServer } from './mcp/server.js';
 export { PrivacyToolHandlers } from './mcp/handlers.js';
